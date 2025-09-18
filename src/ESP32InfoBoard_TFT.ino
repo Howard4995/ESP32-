@@ -372,25 +372,31 @@ void setupWebServer() {
   // 圖片上傳處理
   server.on("/api/upload", HTTP_POST, []() {
     server.send(200, "application/json", "{\"status\":\"success\"}");
-  }, []() {
-    HTTPUpload& upload = server.upload();
-    if (upload.status == UPLOAD_FILE_START) {
-      Serial.println("開始接收背景圖片...");
-      File file = LittleFS.open("/background.raw", "w");
-      if (!file) {
-        Serial.println("無法建立背景圖片檔案");
-        return;
+    // 簡化版：手動觸發背景檢查
+    checkCustomBackground();
+  });
+  
+  // 提供一個測試用的假圖片上傳
+  server.on("/api/test-image", HTTP_GET, []() {
+    // 建立一個測試用的背景檔案（簡單漸層）
+    File file = LittleFS.open("/background.raw", "w");
+    if (file) {
+      // 建立一個簡單的 320x240 漸層圖（16-bit RGB565）
+      for (int y = 0; y < 240; y++) {
+        for (int x = 0; x < 320; x++) {
+          // 建立從藍到紫的漸層
+          uint8_t r = (x * 31) / 320;
+          uint8_t g = (y * 63) / 240;
+          uint8_t b = 31 - (x * 31) / 320;
+          uint16_t pixel = (r << 11) | (g << 5) | b;
+          file.write((uint8_t*)&pixel, 2);
+        }
       }
       file.close();
-    } else if (upload.status == UPLOAD_FILE_WRITE) {
-      File file = LittleFS.open("/background.raw", "a");
-      if (file) {
-        file.write(upload.buf, upload.currentSize);
-        file.close();
-      }
-    } else if (upload.status == UPLOAD_FILE_END) {
-      Serial.println("背景圖片上傳完成");
       hasCustomBackground = true;
+      server.send(200, "application/json", "{\"status\":\"test image created\"}");
+    } else {
+      server.send(500, "application/json", "{\"status\":\"failed to create test image\"}");
     }
   });
   
