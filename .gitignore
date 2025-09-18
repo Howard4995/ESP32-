@@ -1,0 +1,28 @@
+# PlatformIO
+.pio/
+.vscode/
+*.tmp
+*.temp
+
+# Build artifacts
+build/
+dist/
+*.bin
+*.elf
+
+# IDE files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# Temporary files
+/tmp/
