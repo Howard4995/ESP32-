@@ -1,0 +1,128 @@
+:root{
+  --scale: 2;
+  --gap: 6px;
+  --statusbar-h: 24px;
+  --statusbar-gap: 8px;
+
+  --radius: 14px;
+  --radius-sm: 12px;
+  --accent: #0A84FF;
+  --fg: #f6f7fb;
+  --fg-muted:#c7c7cf;
+  --bg:#0b0c10;
+  --widget-bg: rgba(22,22,24,.72);
+  --widget-border: rgba(255,255,255,.06);
+  --widget-highlight: rgba(255,255,255,.06);
+  --shadow: 0 10px 24px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.6);
+  --inner: inset 0 1px 0 rgba(255,255,255,.04), inset 0 -1px 0 rgba(0,0,0,.5);
+  --chip-bg: rgba(255,255,255,.08);
+  --chip-border: rgba(255,255,255,.12);
+  --warn-fg-dark:#000;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; padding:16px;
+  font:14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text","SF Pro Display","SF Pro Rounded", Segoe UI, Roboto, Helvetica, Arial, "Noto Sans TC","Microsoft JhengHei", system-ui, sans-serif;
+  color:var(--fg);
+  background:
+    radial-gradient(1200px 600px at 10% 0%, #9EE2FF22, transparent 60%),
+    radial-gradient(1100px 800px at 120% 40%, #FFD8D622, transparent 60%),
+    var(--bg);
+}
+.wrap{
+  width: calc(320px * var(--scale));
+  height: calc(240px * var(--scale));
+  margin: 0 auto;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--widget-border);
+  background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04));
+  box-shadow: var(--shadow);
+}
+.screen{
+  position: relative;
+  width: 320px; height: 240px;
+  transform: scale(var(--scale)); transform-origin: top left;
+  border-radius: 14px; overflow: hidden;
+  background:
+    radial-gradient(600px 300px at 80% -20%, rgba(255,255,255,.12), transparent 60%),
+    radial-gradient(800px 500px at -40% 140%, rgba(0,0,0,.08), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.04)),
+    var(--bg);
+}
+.statusbar{
+  position:absolute; inset:0 0 auto 0; height: var(--statusbar-h); padding:0 8px;
+  display:flex; align-items:center; justify-content:space-between; font-size:12px;
+  backdrop-filter: saturate(140%) blur(14px);
+  z-index: 2;
+}
+.chip{
+  display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px;
+  background:var(--chip-bg); border:1px solid var(--chip-border);
+}
+.dot-signal{ width:6px; height:6px; background:var(--accent); border-radius:50% }
+.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace }
+
+/* 可用高 = 200；98 + 66 + 24 + 12(gap*2) = 200 恰好 */
+.content{
+  position:absolute; left:8px; right:8px;
+  top: calc(var(--statusbar-h) + var(--statusbar-gap));
+  bottom: 8px;
+  display:grid; gap: var(--gap);
+  grid-template-columns: 190px 108px;
+  grid-template-rows: 98px 66px 24px;
+  grid-template-areas:
+    "clock  now"
+    "forecast forecast"
+    "warn    warn";
+  z-index: 1;
+}
+.widget{
+  background:var(--widget-bg); border:1px solid var(--widget-border);
+  border-radius: var(--radius); box-shadow: var(--shadow), var(--inner);
+  display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden;
+  padding:10px;
+}
+.title{ font-size:12px; color:var(--fg-muted); margin-bottom:6px; letter-spacing:.2px }
+.w-clock{ grid-area: clock }
+.w-clock .time{
+  font-family: "SF Pro Rounded","SF Pro Display",-apple-system,system-ui;
+  font-weight:800; font-size:32px; line-height:1; letter-spacing:.3px;
+  text-shadow: 0 4px 18px rgba(0,0,0,.35);
+}
+.w-clock .date{ margin-top:8px; font-size:12px; color:var(--fg-muted) }
+.w-now{ grid-area: now }
+.w-now .toprow{ display:flex; align-items:center; gap:8px; margin-bottom:6px }
+.icon-lg{ font-size:26px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.25)) }
+.temp{ font-weight:800; font-size:22px; letter-spacing:.2px }
+.meta-lines{ display:grid; row-gap:2px }
+.meta-lines .line{
+  color:var(--fg-muted);
+  font-size:11.5px; line-height:1.25;
+  white-space:normal; word-break:break-word;
+}
+.w-forecast{
+  grid-area: forecast; background:transparent; border:none; box-shadow:none; padding:0;
+  display:grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap);
+}
+.card{
+  background:var(--widget-bg); border:1px solid var(--widget-border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow), var(--inner);
+  padding:9px; position:relative; display:flex; flex-direction:column; min-width:0;
+}
+.d{ font-size:12px; color:var(--fg-muted) }
+.mini{ display:flex; align-items:center; gap:8px; margin-top:6px }
+.mini .i{ font-size:16px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.25)) }
+.mini .t{ margin-left:auto; font-weight:700; font-size:12.5px }
+.warn{
+  grid-area: warn; border-radius: 14px; padding:0 12px;
+  border:1px solid var(--widget-border); box-shadow: var(--shadow);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px;
+  display:flex; align-items:center; gap:10px; font-weight:650;
+}
+.warn.none   { background: color-mix(in srgb, var(--chip-bg) 100%, transparent) }
+.warn.yellow { background: #FFD60A; color: var(--warn-fg-dark) }
+.warn.orange { background: #FF9F0A; color: var(--warn-fg-dark) }
+.warn.red    { background: #FF453A; color: var(--warn-fg-dark) }
+.pulse{ width:8px; height:8px; border-radius:50%; background: currentColor; opacity:.9; box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 20%, transparent) }
