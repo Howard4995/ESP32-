@@ -23,6 +23,8 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <time.h>
+#include <FS.h>
+#include <LittleFS.h>
 #include "icons_tft.h"
 
 // TFT 接腳定義
@@ -40,6 +42,7 @@
 #define COLOR_MUTED   0x8410    // 淺灰
 #define COLOR_ACCENT  0x051D    // 藍色
 #define COLOR_ORANGE  0xFD20    // 橙色
+#define COLOR_GLASS   0x39E7    // 半透明白色 (毛玻璃效果)
 
 // WiFi AP 設定
 const char* AP_SSID = "ESP32-InfoBoard-Setup";
@@ -55,6 +58,8 @@ String wifi_password = "";
 String qweather_key = "";
 String city_name = "";
 String city_id = "";
+String background_style = "original";  // "original" or "custom"
+bool hasCustomBackground = false;
 
 // 天氣資料結構
 struct WeatherData {
@@ -102,6 +107,14 @@ void setup() {
   // 初始化偏好設定
   prefs.begin("weather", false);
   loadSettings();
+  
+  // 初始化檔案系統
+  if (!LittleFS.begin()) {
+    Serial.println("LittleFS 初始化失敗");
+  } else {
+    Serial.println("LittleFS 初始化成功");
+    checkCustomBackground();
+  }
   
   // 設定時區
   configTime(8 * 3600, 0, "pool.ntp.org", "time.nist.gov");
@@ -181,6 +194,7 @@ void loadSettings() {
   qweather_key = prefs.getString("qw_key", "");
   city_name = prefs.getString("city_name", "");
   city_id = prefs.getString("city_id", "");
+  background_style = prefs.getString("bg_style", "original");
   
   Serial.println("設定載入完成");
 }
@@ -191,8 +205,62 @@ void saveSettings() {
   prefs.putString("qw_key", qweather_key);
   prefs.putString("city_name", city_name);
   prefs.putString("city_id", city_id);
+  prefs.putString("bg_style", background_style);
   
   Serial.println("設定已儲存");
+}
+
+void checkCustomBackground() {
+  if (LittleFS.exists("/background.raw")) {
+    hasCustomBackground = true;
+    Serial.println("發現自訂背景圖片");
+  } else {
+    hasCustomBackground = false;
+    Serial.println("未發現自訂背景圖片");
+  }
+}
+
+void drawBackground() {
+  if (background_style == "custom" && hasCustomBackground) {
+    drawCustomBackground();
+  } else {
+    tft.fillScreen(COLOR_BG);
+  }
+}
+
+void drawCustomBackground() {
+  if (!hasCustomBackground) return;
+  
+  File file = LittleFS.open("/background.raw", "r");
+  if (!file) {
+    Serial.println("無法開啟背景圖片檔案");
+    tft.fillScreen(COLOR_BG);
+    return;
+  }
+  
+  // 讀取並顯示 320x240 的 16-bit 圖像資料
+  uint16_t pixel;
+  for (int y = 0; y < 240; y++) {
+    for (int x = 0; x < 320; x++) {
+      if (file.available() >= 2) {
+        file.read((uint8_t*)&pixel, 2);
+        tft.drawPixel(x, y, pixel);
+      }
+    }
+  }
+  file.close();
+}
+
+void drawGlassWidget(int16_t x, int16_t y, int16_t w, int16_t h, int16_t radius) {
+  if (background_style == "custom" && hasCustomBackground) {
+    // 毛玻璃效果：半透明白色背景
+    tft.fillRoundRect(x, y, w, h, radius, COLOR_GLASS);
+    // 添加邊框增強玻璃效果
+    tft.drawRoundRect(x, y, w, h, radius, 0xBDF7);
+  } else {
+    // 原始樣式
+    tft.fillRoundRect(x, y, w, h, radius, COLOR_WIDGET);
+  }
 }
 
 void connectWiFi() {
@@ -262,6 +330,9 @@ void setupWebServer() {
       // 查詢城市 ID
       city_id = getCityId(city_name);
     }
+    if (server.hasArg("background_style")) {
+      background_style = server.arg("background_style");
+    }
     
     saveSettings();
     
@@ -298,6 +369,31 @@ void setupWebServer() {
     server.send(200, "application/json", output);
   });
   
+  // 圖片上傳處理
+  server.on("/api/upload", HTTP_POST, []() {
+    server.send(200, "application/json", "{\"status\":\"success\"}");
+  }, []() {
+    HTTPUpload& upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START) {
+      Serial.println("開始接收背景圖片...");
+      File file = LittleFS.open("/background.raw", "w");
+      if (!file) {
+        Serial.println("無法建立背景圖片檔案");
+        return;
+      }
+      file.close();
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+      File file = LittleFS.open("/background.raw", "a");
+      if (file) {
+        file.write(upload.buf, upload.currentSize);
+        file.close();
+      }
+    } else if (upload.status == UPLOAD_FILE_END) {
+      Serial.println("背景圖片上傳完成");
+      hasCustomBackground = true;
+    }
+  });
+  
   server.begin();
   Serial.println("Web 伺服器已啟動");
 }
@@ -314,12 +410,16 @@ String getConfigHTML() {
         body { font-family: Arial, sans-serif; margin: 20px; background: #f0f0f0; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         h1 { color: #333; text-align: center; }
+        h2 { color: #666; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
         .form-group { margin-bottom: 15px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input[type="text"], input[type="password"] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-        button { background: #007AFF; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
+        input[type="text"], input[type="password"], input[type="file"], select { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { background: #007AFF; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; margin-top: 10px; }
         button:hover { background: #0056CC; }
         .info { background: #e7f3ff; padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 14px; }
+        .upload-section { background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 20px; }
+        #backgroundPreview { display: none; margin-top: 10px; }
+        #backgroundPreview img { max-width: 100%; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -329,10 +429,12 @@ String getConfigHTML() {
             <strong>設定說明：</strong><br>
             • WiFi：設定網路連線<br>
             • API Key：到 <a href="https://dev.qweather.com" target="_blank">和風天氣</a> 免費註冊<br>
-            • 城市：可用中文、英文或拼音
+            • 城市：可用中文、英文或拼音<br>
+            • 背景樣式：原始樣式或自訂圖片背景（毛玻璃效果）
         </div>
         
         <form onsubmit="saveConfig(event)">
+            <h2>基本設定</h2>
             <div class="form-group">
                 <label>WiFi SSID：</label>
                 <input type="text" name="wifi_ssid" required>
@@ -349,11 +451,63 @@ String getConfigHTML() {
                 <label>城市名稱：</label>
                 <input type="text" name="city_name" placeholder="例：台北、Beijing、shanghai" required>
             </div>
+            
+            <h2>背景樣式</h2>
+            <div class="form-group">
+                <label>選擇背景樣式：</label>
+                <select name="background_style" onchange="toggleUploadSection()">
+                    <option value="original">原始樣式</option>
+                    <option value="custom">自訂圖片背景</option>
+                </select>
+            </div>
+            
             <button type="submit">保存設定並重啟</button>
         </form>
+        
+        <div class="upload-section" id="uploadSection" style="display: none;">
+            <h2>背景圖片上傳</h2>
+            <div class="info">
+                <strong>圖片要求：</strong><br>
+                • 建議尺寸：320×240 像素<br>
+                • 支援格式：JPG, PNG<br>
+                • 檔案大小：&lt; 1MB<br>
+                • 上傳後將以毛玻璃效果顯示資訊區塊
+            </div>
+            <form onsubmit="uploadBackground(event)" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>選擇圖片檔案：</label>
+                    <input type="file" name="background" accept="image/*" onchange="previewImage(this)" required>
+                </div>
+                <div id="backgroundPreview">
+                    <img id="previewImg" src="" alt="預覽">
+                </div>
+                <button type="submit">上傳背景圖片</button>
+            </form>
+        </div>
     </div>
     
     <script>
+        function toggleUploadSection() {
+            const select = document.querySelector('select[name="background_style"]');
+            const uploadSection = document.getElementById('uploadSection');
+            if (select.value === 'custom') {
+                uploadSection.style.display = 'block';
+            } else {
+                uploadSection.style.display = 'none';
+            }
+        }
+        
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('previewImg').src = e.target.result;
+                    document.getElementById('backgroundPreview').style.display = 'block';
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        
         function saveConfig(event) {
             event.preventDefault();
             const form = event.target;
@@ -370,6 +524,60 @@ String getConfigHTML() {
             .catch(error => {
                 alert('保存失敗：' + error);
             });
+        }
+        
+        function uploadBackground(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            if (!formData.get('background').name) {
+                alert('請選擇圖片檔案');
+                return;
+            }
+            
+            // 先轉換圖片為適當格式
+            const file = formData.get('background');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = function() {
+                canvas.width = 320;
+                canvas.height = 240;
+                ctx.drawImage(img, 0, 0, 320, 240);
+                
+                // 轉換為16-bit RGB565格式
+                const imageData = ctx.getImageData(0, 0, 320, 240);
+                const buffer = new ArrayBuffer(320 * 240 * 2);
+                const view = new Uint16Array(buffer);
+                
+                for (let i = 0; i < imageData.data.length; i += 4) {
+                    const r = imageData.data[i] >> 3;
+                    const g = imageData.data[i + 1] >> 2;
+                    const b = imageData.data[i + 2] >> 3;
+                    const rgb565 = (r << 11) | (g << 5) | b;
+                    view[i / 4] = rgb565;
+                }
+                
+                const blob = new Blob([buffer], { type: 'application/octet-stream' });
+                const uploadData = new FormData();
+                uploadData.append('background', blob, 'background.raw');
+                
+                fetch('/api/upload', {
+                    method: 'POST',
+                    body: uploadData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    alert('背景圖片上傳成功！請重新啟動裝置以套用新背景。');
+                })
+                .catch(error => {
+                    alert('上傳失敗：' + error);
+                });
+            };
+            
+            img.src = URL.createObjectURL(file);
         }
     </script>
 </body>
@@ -565,7 +773,7 @@ IconType getIconType(String iconCode) {
 }
 
 void drawInterface() {
-  tft.fillScreen(COLOR_BG);
+  drawBackground();
   
   // 繪製狀態列
   drawStatusBar();
@@ -585,7 +793,11 @@ void drawInterface() {
 
 void drawStatusBar() {
   // 狀態列背景
-  tft.fillRect(0, 0, 320, 24, COLOR_WIDGET);
+  if (background_style == "custom" && hasCustomBackground) {
+    tft.fillRect(0, 0, 320, 24, COLOR_GLASS);
+  } else {
+    tft.fillRect(0, 0, 320, 24, COLOR_WIDGET);
+  }
   
   // 城市名稱
   tft.setTextColor(COLOR_TEXT);
@@ -614,7 +826,7 @@ void drawStatusBar() {
 
 void drawClockCard() {
   // 卡片背景
-  tft.fillRoundRect(8, 32, 182, 102, 12, COLOR_WIDGET);
+  drawGlassWidget(8, 32, 182, 102, 12);
   
   // 標題
   tft.setTextColor(COLOR_MUTED);
@@ -626,8 +838,12 @@ void drawClockCard() {
 }
 
 void updateTimeDisplay() {
-  // 清除時間區域
-  tft.fillRect(16, 55, 166, 70, COLOR_WIDGET);
+  // 清除時間區域 - 使用與背景樣式相符的填色
+  if (background_style == "custom" && hasCustomBackground) {
+    tft.fillRect(16, 55, 166, 70, COLOR_GLASS);
+  } else {
+    tft.fillRect(16, 55, 166, 70, COLOR_WIDGET);
+  }
   
   struct tm timeinfo;
   if (getLocalTime(&timeinfo)) {
@@ -657,7 +873,7 @@ void updateTimeDisplay() {
 
 void drawWeatherCard() {
   // 卡片背景
-  tft.fillRoundRect(198, 32, 114, 102, 12, COLOR_WIDGET);
+  drawGlassWidget(198, 32, 114, 102, 12);
   
   // 標題
   tft.setTextColor(COLOR_MUTED);
@@ -701,7 +917,7 @@ void drawForecastCards() {
     int y = 142;
     
     // 卡片背景
-    tft.fillRoundRect(x, y, 96, 60, 8, COLOR_WIDGET);
+    drawGlassWidget(x, y, 96, 60, 8);
     
     // 日期
     tft.setTextColor(COLOR_MUTED);
