@@ -18,6 +18,11 @@ ESP32-/
 │   └── ESP32InfoBoard_TFT.ino  # 主程式代碼
 ├── include/
 │   └── icons_tft.h             # 天氣圖標繪製庫
+├── windows_monitor/            # Windows 系統監控程式
+│   ├── system_monitor.py       # 主監控程式
+│   ├── install.bat             # 自動安裝腳本
+│   ├── requirements.txt        # Python 依賴套件
+│   └── README.md               # 詳細使用說明
 └── preview/
     ├── index.html              # HTML 預覽頁面
     └── widget.css              # CSS 樣式文件
@@ -65,16 +70,24 @@ ESP32-/
    - 支援城市 ID 查詢
    - 當前天氣、預報、預警
 
-4. **顯示渲染**
+4. **藍牙系統監控（新增）**
+   - 藍牙串列通訊接收系統資料
+   - CPU、GPU、RAM 使用率顯示
+   - 自動重連和錯誤處理
+   - Windows 電腦端監控程式
+
+5. **顯示渲染**
    - TFT 圖形界面
    - iOS Widgets 風格設計
    - 圖標繪製系統
+   - 進度條和狀態指示器
 
 ### 依賴庫
 
 - **Adafruit GFX Library** - 圖形繪製基礎庫
 - **Adafruit ILI9341** - TFT 顯示驅動
 - **ArduinoJson** - JSON 數據解析
+- **BluetoothSerial** - ESP32 藍牙串列通訊（內建）
 
 ## API 接口
 
