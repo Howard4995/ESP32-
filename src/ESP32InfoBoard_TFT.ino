@@ -23,12 +23,9 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <time.h>
-<<<<<<< copilot/fix-aee1b76d-66d5-4591-a737-d9b37e845434
 #include <BluetoothSerial.h>
-=======
 #include <FS.h>
 #include <LittleFS.h>
->>>>>>> main
 #include "icons_tft.h"
 
 // TFT 接腳定義
@@ -127,11 +124,11 @@ void setup() {
   prefs.begin("weather", false);
   loadSettings();
   
-<<<<<<< copilot/fix-aee1b76d-66d5-4591-a737-d9b37e845434
+  
   // 初始化藍牙
   SerialBT.begin("ESP32-InfoBoard"); // 藍牙裝置名稱
   Serial.println("藍牙已啟動，等待連線...");
-=======
+  
   // 初始化檔案系統
   if (!LittleFS.begin()) {
     Serial.println("LittleFS 初始化失敗");
@@ -139,7 +136,6 @@ void setup() {
     Serial.println("LittleFS 初始化成功");
     checkCustomBackground();
   }
->>>>>>> main
   
   // 設定時區
   configTime(8 * 3600, 0, "pool.ntp.org", "time.nist.gov");
