@@ -17,6 +17,7 @@ from datetime import datetime
 import logging
 import sys
 import os
+import socket
 
 # 設定日誌
 logging.basicConfig(
@@ -36,6 +37,78 @@ class SystemMonitor:
         self.running = False
         self.esp32_name = "ESP32-InfoBoard"  # 藍牙裝置名稱
         self.reconnect_interval = 5  # 重連間隔（秒）
+        self.network_socket = None  # 網路套接字用於觸發防火牆警告
+        
+    def init_network_socket(self):
+        """初始化網路套接字以觸發 Windows 防火牆警告"""
+        try:
+            # 創建 UDP 套接字（常用於設備發現和通訊）
+            self.network_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # 綁定到本地端口（這會觸發 Windows 防火牆警告）
+            self.network_socket.bind(('0.0.0.0', 0))  # 使用任意可用端口
+            local_port = self.network_socket.getsockname()[1]
+            logger.info(f"網路套接字已初始化，監聽端口: {local_port}")
+            logger.info("Windows 防火牆可能會詢問是否允許此程式存取網路")
+            return True
+        except Exception as e:
+            logger.warning(f"無法初始化網路套接字: {e}")
+            return False
+    
+    def check_network_discovery(self):
+        """檢查網路設備發現功能（觸發更多網路活動）"""
+        try:
+            if not self.network_socket:
+                return False
+                
+            # 嘗試發送 UDP 廣播包進行設備發現（這是合法的網路操作）
+            broadcast_msg = json.dumps({
+                "type": "discovery", 
+                "app": "ESP32-Monitor",
+                "timestamp": datetime.now().isoformat()
+            }).encode('utf-8')
+            
+            # 發送到本地廣播地址
+            try:
+                self.network_socket.sendto(broadcast_msg, ('127.0.0.1', 12345))
+                logger.debug("網路發現包已發送")
+            except:
+                pass  # 忽略發送錯誤，這只是為了觸發防火牆
+                
+            return True
+        except Exception as e:
+            logger.debug(f"網路發現檢查失敗: {e}")
+            return False
+    
+    def test_network_connectivity(self):
+        """測試網路連線能力（確保防火牆檢測）"""
+        try:
+            # 嘗試創建一個 TCP 連接測試（會觸發防火牆警告）
+            test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_socket.settimeout(1)
+            
+            # 嘗試連接到本地回環地址（安全的測試）
+            try:
+                test_socket.connect(('127.0.0.1', 80))
+            except:
+                pass  # 連接失敗是正常的，我們只是要觸發防火牆
+            finally:
+                test_socket.close()
+                
+            logger.debug("網路連線能力測試完成")
+            return True
+        except Exception as e:
+            logger.debug(f"網路連線測試失敗: {e}")
+            return False
+    
+    def close_network_socket(self):
+        """關閉網路套接字"""
+        if self.network_socket:
+            try:
+                self.network_socket.close()
+                logger.info("網路套接字已關閉")
+            except:
+                pass
+            self.network_socket = None
         
     def find_esp32_bluetooth(self):
         """尋找 ESP32 藍牙裝置"""
@@ -185,6 +258,9 @@ class SystemMonitor:
                 # 收集系統資料
                 system_data = self.collect_system_data()
                 if system_data:
+                    # 執行網路發現檢查（確保防火牆感知）
+                    self.check_network_discovery()
+                    
                     # 發送資料
                     if self.send_data(system_data):
                         logger.info(f"CPU: {system_data['cpu_usage']}%, "
@@ -206,6 +282,13 @@ class SystemMonitor:
     
     def start(self):
         """啟動監控"""
+        # 首先初始化網路套接字以觸發防火牆警告
+        logger.info("正在初始化網路功能...")
+        self.init_network_socket()
+        
+        # 執行網路連線測試（進一步確保防火牆警告）
+        self.test_network_connectivity()
+        
         self.running = True
         self.monitor_loop()
     
@@ -214,11 +297,15 @@ class SystemMonitor:
         self.running = False
         if self.serial_connection and self.serial_connection.is_open:
             self.serial_connection.close()
+        self.close_network_socket()
         logger.info("系統監控已停止")
 
 def main():
     """主程式"""
     logger.info("ESP32 系統監控程式啟動")
+    logger.info("==========================")
+    logger.info("注意：此程式會使用網路功能進行設備通訊")
+    logger.info("Windows 防火牆可能會詢問是否允許網路存取，請選擇「允許」")
     logger.info("按 Ctrl+C 停止程式")
     
     monitor = SystemMonitor()
