@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 系統監控 - 螢幕預覽</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #2c3e50;
+            color: white;
+        }
+        
+        .device-frame {
+            width: 320px;
+            height: 240px;
+            background: #0861;
+            border: 3px solid #34495e;
+            border-radius: 8px;
+            position: relative;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+        
+        .status-bar {
+            height: 24px;
+            background: #0861;
+            padding: 0 8px;
+            font-size: 10px;
+            line-height: 24px;
+            border-bottom: 1px solid #2124;
+        }
+        
+        .content-area {
+            padding: 8px;
+            height: calc(240px - 24px - 16px);
+        }
+        
+        .row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .card {
+            background: #2124;
+            border-radius: 8px;
+            padding: 8px;
+            color: white;
+        }
+        
+        .clock-card {
+            flex: 1;
+            height: 80px;
+        }
+        
+        .weather-card {
+            flex: 1;
+            height: 80px;
+        }
+        
+        .system-cards {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .system-card {
+            flex: 1;
+            background: #2124;
+            border-radius: 8px;
+            padding: 8px;
+            height: 82px;
+            position: relative;
+        }
+        
+        .system-card h4 {
+            margin: 0;
+            font-size: 10px;
+            color: #8410;
+        }
+        
+        .system-card .percentage {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 4px 0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #0861;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 4px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+        }
+        
+        .cpu .progress-fill { background: #051d; }
+        .gpu .progress-fill { background: #07e0; }
+        .ram .progress-fill { background: #f81f; }
+        
+        .system-card .info {
+            font-size: 9px;
+            color: #8410;
+        }
+        
+        .connection-dot {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #07e0;
+        }
+        
+        .warning-bar {
+            background: #fd20;
+            border-radius: 11px;
+            padding: 4px 8px;
+            font-size: 10px;
+            color: black;
+            height: 14px;
+            line-height: 14px;
+        }
+        
+        .big-text {
+            font-size: 32px;
+            font-weight: bold;
+        }
+        
+        .medium-text {
+            font-size: 14px;
+        }
+        
+        .small-text {
+            font-size: 10px;
+            color: #8410;
+        }
+    </style>
+</head>
+<body>
+    <h1>ESP32 信息牌 - 新增系統監控功能</h1>
+    
+    <div class="device-frame">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            台北市 • 192.168.1.100 📶
+        </div>
+        
+        <!-- Content Area -->
+        <div class="content-area">
+            <!-- First Row: Clock + Weather -->
+            <div class="row">
+                <div class="card clock-card">
+                    <div class="big-text">14:32</div>
+                    <div class="small-text">01-15 Mon</div>
+                </div>
+                <div class="card weather-card">
+                    <div style="display: flex;">
+                        <div style="font-size: 24px;">☀️</div>
+                        <div style="margin-left: 8px;">
+                            <div class="medium-text">23°C</div>
+                            <div class="small-text">晴朗</div>
+                            <div class="small-text">濕度65% • 東風2級</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Second Row: System Monitoring -->
+            <div class="system-cards">
+                <div class="system-card cpu">
+                    <div class="connection-dot"></div>
+                    <h4>CPU</h4>
+                    <div class="percentage">45.2%</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 45.2%;"></div>
+                    </div>
+                    <div class="info">65°C</div>
+                </div>
+                <div class="system-card gpu">
+                    <div class="connection-dot"></div>
+                    <h4>GPU</h4>
+                    <div class="percentage">78.5%</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 78.5%;"></div>
+                    </div>
+                    <div class="info">72°C</div>
+                </div>
+                <div class="system-card ram">
+                    <div class="connection-dot"></div>
+                    <h4>RAM</h4>
+                    <div class="percentage">67.3%</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 67.3%;"></div>
+                    </div>
+                    <div class="info">10.8/16GB</div>
+                </div>
+            </div>
+            
+            <!-- Warning Bar -->
+            <div class="warning-bar">
+                🌧️ 大雨預警：明日下午有強降雨，請注意安全
+            </div>
+        </div>
+    </div>
+    
+    <div style="margin-top: 20px; text-align: center; max-width: 600px; margin-left: auto; margin-right: auto;">
+        <h2>新功能說明</h2>
+        <ul style="text-align: left;">
+            <li><strong>CPU 監控</strong>：顯示處理器使用率和溫度</li>
+            <li><strong>GPU 監控</strong>：顯示顯卡使用率和溫度</li>
+            <li><strong>RAM 監控</strong>：顯示記憶體使用率和已用/總量</li>
+            <li><strong>連線狀態</strong>：右上角綠點表示藍牙已連線</li>
+            <li><strong>進度條</strong>：視覺化顯示使用率百分比</li>
+            <li><strong>即時更新</strong>：每 2 秒從 Windows 電腦更新資料</li>
+        </ul>
+    </div>
+</body>
+</html>

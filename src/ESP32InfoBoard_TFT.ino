@@ -23,8 +23,12 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <time.h>
+<<<<<<< copilot/fix-aee1b76d-66d5-4591-a737-d9b37e845434
+#include <BluetoothSerial.h>
+=======
 #include <FS.h>
 #include <LittleFS.h>
+>>>>>>> main
 #include "icons_tft.h"
 
 // TFT 接腳定義
@@ -52,6 +56,7 @@ const char* AP_PASSWORD = "12345678";
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC, TFT_RST);
 WebServer server(80);
 Preferences prefs;
+BluetoothSerial SerialBT;
 
 String wifi_ssid = "";
 String wifi_password = "";
@@ -86,9 +91,23 @@ struct WarningData {
   unsigned long lastUpdate = 0;
 };
 
+// 系統監控資料結構
+struct SystemMonitorData {
+  float cpuUsage = 0.0;
+  float gpuUsage = 0.0;
+  float ramUsage = 0.0;
+  float ramTotal = 0.0;
+  float ramUsed = 0.0;
+  String cpuTemp = "--";
+  String gpuTemp = "--";
+  bool connected = false;
+  unsigned long lastUpdate = 0;
+};
+
 WeatherData currentWeather;
 ForecastData forecast[3];
 WarningData warning;
+SystemMonitorData systemData;
 
 void setup() {
   Serial.begin(115200);
@@ -108,6 +127,11 @@ void setup() {
   prefs.begin("weather", false);
   loadSettings();
   
+<<<<<<< copilot/fix-aee1b76d-66d5-4591-a737-d9b37e845434
+  // 初始化藍牙
+  SerialBT.begin("ESP32-InfoBoard"); // 藍牙裝置名稱
+  Serial.println("藍牙已啟動，等待連線...");
+=======
   // 初始化檔案系統
   if (!LittleFS.begin()) {
     Serial.println("LittleFS 初始化失敗");
@@ -115,6 +139,7 @@ void setup() {
     Serial.println("LittleFS 初始化成功");
     checkCustomBackground();
   }
+>>>>>>> main
   
   // 設定時區
   configTime(8 * 3600, 0, "pool.ntp.org", "time.nist.gov");
@@ -141,8 +166,12 @@ void loop() {
   static unsigned long lastWeatherUpdate = 0;
   static unsigned long lastTimeUpdate = 0;
   static unsigned long lastWarningUpdate = 0;
+  static unsigned long lastSystemUpdate = 0;
   
   unsigned long now = millis();
+  
+  // 處理藍牙接收的系統監控資料
+  handleBluetoothData();
   
   // 每 10 分鐘更新天氣
   if (now - lastWeatherUpdate > 600000 || lastWeatherUpdate == 0) {
@@ -165,6 +194,12 @@ void loop() {
   if (now - lastTimeUpdate > 1000) {
     updateTimeDisplay();
     lastTimeUpdate = now;
+  }
+  
+  // 每 2 秒更新系統監控顯示
+  if (now - lastSystemUpdate > 2000) {
+    updateSystemMonitorDisplay();
+    lastSystemUpdate = now;
   }
   
   delay(100);
@@ -790,8 +825,8 @@ void drawInterface() {
   // 繪製天氣卡片
   drawWeatherCard();
   
-  // 繪製預報卡片
-  drawForecastCards();
+  // 繪製系統監控卡片（新增）
+  drawSystemMonitorCards();
   
   // 繪製預警列
   drawWarningBar();
@@ -955,12 +990,12 @@ void drawWarningBar() {
       warningColor = ILI9341_YELLOW;
     }
     
-    tft.fillRoundRect(8, 210, 304, 22, 11, warningColor);
+    tft.fillRoundRect(8, 235, 304, 22, 11, warningColor);
     
     // 預警文字
     tft.setTextColor(ILI9341_BLACK);
     tft.setTextSize(1);
-    tft.setCursor(16, 218);
+    tft.setCursor(16, 243);
     
     // 截斷過長文字
     String displayText = warning.text;
@@ -970,6 +1005,128 @@ void drawWarningBar() {
     tft.print(displayText);
   } else {
     // 清除預警區域
-    tft.fillRect(8, 210, 304, 22, COLOR_BG);
+    tft.fillRect(8, 235, 304, 22, COLOR_BG);
+  }
+}
+
+// 處理藍牙接收的系統監控資料
+void handleBluetoothData() {
+  if (SerialBT.available()) {
+    String receivedData = SerialBT.readStringUntil('\n');
+    receivedData.trim();
+    
+    if (receivedData.length() > 0) {
+      parseSystemData(receivedData);
+    }
+  }
+  
+  // 檢查連線狀態（超過 10 秒沒收到資料視為斷線）
+  if (millis() - systemData.lastUpdate > 10000) {
+    systemData.connected = false;
+  }
+}
+
+// 解析系統監控資料
+void parseSystemData(String jsonData) {
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, jsonData);
+  
+  if (error) {
+    Serial.println("JSON 解析錯誤");
+    return;
+  }
+  
+  if (doc["type"] == "system") {
+    systemData.cpuUsage = doc["cpu_usage"];
+    systemData.gpuUsage = doc["gpu_usage"];
+    systemData.ramUsage = doc["ram_usage"];
+    systemData.ramTotal = doc["ram_total"];
+    systemData.ramUsed = doc["ram_used"];
+    systemData.cpuTemp = doc["cpu_temp"].as<String>();
+    systemData.gpuTemp = doc["gpu_temp"].as<String>();
+    systemData.connected = true;
+    systemData.lastUpdate = millis();
+    
+    Serial.println("系統監控資料已更新");
+  }
+}
+
+// 更新系統監控顯示
+void updateSystemMonitorDisplay() {
+  drawSystemMonitorCards();
+}
+
+// 繪製系統監控卡片
+void drawSystemMonitorCards() {
+  // CPU 監控卡片 (左)
+  drawSystemCard(8, 142, "CPU", systemData.cpuUsage, systemData.cpuTemp, COLOR_ACCENT);
+  
+  // GPU 監控卡片 (中)
+  drawSystemCard(112, 142, "GPU", systemData.gpuUsage, systemData.gpuTemp, 0x07E0); // 綠色
+  
+  // RAM 監控卡片 (右)
+  String ramInfo = String(systemData.ramUsed, 1) + "/" + String(systemData.ramTotal, 1) + "GB";
+  drawSystemCard(216, 142, "RAM", systemData.ramUsage, ramInfo, 0xF81F); // 紫色
+}
+
+// 繪製單個系統監控卡片
+void drawSystemCard(int x, int y, String title, float usage, String info, uint16_t color) {
+  int cardWidth = 96;
+  int cardHeight = 90;
+  
+  // 卡片背景
+  tft.fillRoundRect(x, y, cardWidth, cardHeight, 8, COLOR_WIDGET);
+  
+  // 標題
+  tft.setTextColor(COLOR_MUTED);
+  tft.setTextSize(1);
+  tft.setCursor(x + 8, y + 8);
+  tft.print(title);
+  
+  // 連線狀態指示
+  if (systemData.connected) {
+    tft.fillCircle(x + cardWidth - 12, y + 12, 3, 0x07E0); // 綠色圓點
+  } else {
+    tft.fillCircle(x + cardWidth - 12, y + 12, 3, 0xF800); // 紅色圓點
+  }
+  
+  if (systemData.connected) {
+    // 使用率百分比
+    tft.setTextColor(COLOR_TEXT);
+    tft.setTextSize(2);
+    tft.setCursor(x + 8, y + 25);
+    tft.print(String(usage, 1));
+    tft.print("%");
+    
+    // 進度條
+    int barWidth = cardWidth - 16;
+    int barHeight = 6;
+    int barX = x + 8;
+    int barY = y + 50;
+    
+    // 進度條背景
+    tft.fillRoundRect(barX, barY, barWidth, barHeight, 3, COLOR_BG);
+    
+    // 進度條填充
+    int fillWidth = (usage / 100.0) * barWidth;
+    if (fillWidth > 0) {
+      tft.fillRoundRect(barX, barY, fillWidth, barHeight, 3, color);
+    }
+    
+    // 額外資訊（溫度或記憶體）
+    tft.setTextColor(COLOR_MUTED);
+    tft.setTextSize(1);
+    tft.setCursor(x + 8, y + 65);
+    if (info.length() > 12) {
+      tft.print(info.substring(0, 12));
+    } else {
+      tft.print(info);
+    }
+  } else {
+    // 斷線狀態
+    tft.setTextColor(COLOR_MUTED);
+    tft.setTextSize(1);
+    tft.setCursor(x + 8, y + 35);
+    tft.print("未連線");
   }
 }
