@@ -45,6 +45,11 @@
 雙擊 autostart_setup.bat（管理員權限）
 ```
 
+**診斷工具：**
+```batch
+雙擊 diagnose.bat（系統診斷）
+```
+
 ## 資料格式
 
 程式會定期（每2秒）發送以下 JSON 格式資料到 ESP32：
@@ -72,8 +77,16 @@
 
 ### 程式無法啟動
 - 確認已安裝 Python 3.7+
+- Windows 11 用戶建議從 Microsoft Store 安裝 Python
 - 重新執行 `install.bat`
 - 檢查防毒軟體是否阻擋
+- 嘗試以管理員權限執行
+
+### Windows 11 特殊設定
+- 執行 `diagnose.bat` 進行系統診斷
+- 確認 Windows 編碼設定為 UTF-8
+- 檢查藍牙服務是否正常運行
+- 嘗試重新安裝藍牙驅動程式
 
 ### GPU 資訊無法顯示
 - 確認已安裝 NVIDIA 或 AMD 顯卡驅動

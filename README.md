@@ -126,12 +126,17 @@
   - 確認 Windows 已配對 ESP32 裝置
   - 檢查 COM 埠是否正確
   - 重新啟動 Windows 監控程式
+  - Windows 11 用戶請執行 `diagnose.bat` 進行診斷
 - GPU 資訊顯示 "--"？
   - 確認已安裝 GPUtil：`pip install GPUtil`
   - 檢查顯卡驅動是否最新
 - 系統監控卡片顯示「未連線」？
   - 超過 10 秒未收到資料會顯示未連線
   - 檢查 Windows 程式是否正常運行
+- Windows 11 特殊問題？
+  - 執行 `windows_monitor/diagnose.bat` 診斷工具
+  - 確認 Python 從 Microsoft Store 或官網安裝
+  - 檢查藍牙服務和驅動程式狀態
 
 ## 預覽（HTML/CSS）
 打開 `preview/index.html`，即可看到 iOS widget 風格排版。此為純視覺用，不與裝置互動。
